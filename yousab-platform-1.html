@@ -5,9 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>منصة يوساب هاني - رياضيات</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
   --bg: #0A0C1A; --surface: #111428; --card: #1A1F38;
@@ -21,6 +20,7 @@ body { font-family: "Cairo", sans-serif; background: var(--bg); color: var(--tex
 .bg-overlay { position: fixed; inset: 0; z-index: 0; background: rgba(8,10,22,0.85); }
 .page { position: relative; z-index: 1; display: none; min-height: 100vh; }
 .page.active { display: flex; }
+#parentPage.active { display: block; }
 
 /* LOGIN */
 #loginPage { align-items: center; justify-content: center; padding: 20px; }
@@ -168,7 +168,13 @@ h2 { font-size: 20px; font-weight: 900; margin-bottom: 16px; }
       <div style="font-size:13px;color:var(--muted);margin-top:4px;">رياضيات - المرحلة الإعدادية 📐</div>
     </div>
     <div class="login-body">
-      <!-- Login Form -->
+      <!-- Login Tabs -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button onclick="switchLoginTab('student',this)" id="tabStudentBtn" style="flex:1;background:linear-gradient(135deg,var(--primary),var(--primary2));border:none;border-radius:12px;padding:11px;color:#fff;font-family:Cairo,sans-serif;font-size:13px;font-weight:900;cursor:pointer;">🎓 طالب</button>
+        <button onclick="switchLoginTab('parent',this)" id="tabParentBtn" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px;color:var(--muted);font-family:Cairo,sans-serif;font-size:13px;font-weight:900;cursor:pointer;">👨‍👩‍👦 ولي أمر</button>
+      </div>
+
+      <!-- Student Login Form -->
       <div id="loginForm">
         <div class="form-group"><label>رقم الموبايل</label><input id="loginPhone" type="tel" placeholder="01xxxxxxxxx" onkeydown="if(event.key==='Enter')login()"></div>
         <div class="form-group"><label>كلمة السر</label><input id="loginPass" type="password" placeholder="••••••" onkeydown="if(event.key==='Enter')login()"></div>
@@ -193,6 +199,20 @@ h2 { font-size: 20px; font-weight: 900; margin-bottom: 16px; }
         <div id="regMsg"></div>
         <button class="login-btn" onclick="register()">تسجيل ←</button>
         <div class="login-toggle">عندك حساب؟ <span onclick="showLogin()">سجل دخول</span></div>
+      </div>
+
+      <!-- Parent Login Form -->
+      <div id="parentLoginForm" style="display:none;">
+        <div style="background:rgba(108,99,255,0.08);border:1.5px solid rgba(108,99,255,0.2);border-radius:14px;padding:14px;margin-bottom:16px;text-align:center;">
+          <div style="font-size:24px;margin-bottom:6px;">👨‍👩‍👦</div>
+          <div style="font-size:13px;font-weight:800;">بوابة ولي الأمر</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">تابع مستوى تقدم ابنك</div>
+        </div>
+        <div class="form-group"><label>رقم موبايل الطالب (ابنك)</label><input id="parentStudentPhone" type="tel" placeholder="01xxxxxxxxx"></div>
+        <div class="form-group"><label>رقم موبايلك (ولي الأمر)</label><input id="parentPhone" type="tel" placeholder="01xxxxxxxxx"></div>
+        <div class="form-group"><label>كلمة سر حساب ابنك</label><input id="parentPass" type="password" placeholder="••••••" onkeydown="if(event.key==='Enter')loginParent()"></div>
+        <div id="parentMsg"></div>
+        <button class="login-btn" onclick="loginParent()">دخول ←</button>
       </div>
     </div>
   </div>
@@ -356,41 +376,95 @@ h2 { font-size: 20px; font-weight: 900; margin-bottom: 16px; }
     <div style="font-size:13px;font-weight:800;color:var(--primary);">دخول ←</div>
   </div>
 </div>
-<script>
-// ── Firebase Init ──
-const firebaseConfig = {
-  apiKey: "AIzaSyAFZxQH6zMoXpDihOpoIsMH160d9WWA8TA",
-  authDomain: "yousab-platform.firebaseapp.com",
-  projectId: "yousab-platform",
-  storageBucket: "yousab-platform.firebasestorage.app",
-  messagingSenderId: "113566692673",
-  appId: "1:113566692673:web:8e0238f643f6c3ca805dc0"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
 
-async function fbSave(col, doc, data) { try { await db.collection(col).doc(doc).set(data); } catch(e) { console.warn(e); } }
-async function fbGet(col, doc) { try { const d = await db.collection(col).doc(doc).get(); return d.exists ? d.data() : null; } catch(e) { return null; } }
+<!-- PARENT PORTAL PAGE -->
+<div class="page" id="parentPage">
+  <div style="min-height:100vh;background:var(--bg);padding:0 0 80px 0;">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#1A1F38,#0A0C1A);padding:24px 20px 20px;text-align:center;">
+      <div style="font-size:36px;margin-bottom:8px;">👨‍👩‍👦</div>
+      <div style="font-size:18px;font-weight:900;color:#fff;" id="parentWelcome">أهلاً بك</div>
+      <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-top:4px;" id="parentStudentName">متابعة مستوى ابنك</div>
+      <button onclick="logoutParent()" style="position:absolute;top:20px;left:16px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:8px 14px;color:#fff;font-family:Cairo,sans-serif;font-size:12px;cursor:pointer;">خروج 🚪</button>
+    </div>
+
+    <div style="padding:16px;">
+      <!-- Stats Cards -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div class="card" style="text-align:center;padding:16px;">
+          <div style="font-size:28px;" id="parentLecCount">0</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">محاضرة مكتملة</div>
+        </div>
+        <div class="card" style="text-align:center;padding:16px;">
+          <div style="font-size:28px;" id="parentQuizAvg">0%</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">متوسط الكويزات</div>
+        </div>
+        <div class="card" style="text-align:center;padding:16px;">
+          <div style="font-size:28px;" id="parentAttendCount">0</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">أيام حضور</div>
+        </div>
+        <div class="card" style="text-align:center;padding:16px;">
+          <div style="font-size:28px;" id="parentAbsentCount">0</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">أيام غياب</div>
+        </div>
+      </div>
+
+      <!-- Attendance Record -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-size:15px;font-weight:900;margin-bottom:12px;">📅 سجل الحضور والغياب</div>
+        <div id="parentAttendanceList"><div style="text-align:center;color:var(--muted);padding:20px;">لا يوجد سجل بعد</div></div>
+      </div>
+
+      <!-- Quiz Grades -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-size:15px;font-weight:900;margin-bottom:12px;">📝 درجات الكويزات</div>
+        <div id="parentQuizGrades"><div style="text-align:center;color:var(--muted);padding:20px;">لا توجد درجات بعد</div></div>
+      </div>
+
+      <!-- Contact Teacher -->
+      <div class="card">
+        <div style="font-size:15px;font-weight:900;margin-bottom:12px;">📱 تواصل مع الأستاذ</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">تواصل مع أ. Yousab لمعرفة مستوى ابنك</div>
+        <button onclick="contactTeacherParent()" style="width:100%;background:linear-gradient(135deg,#25D366,#1da851);border:none;border-radius:14px;padding:14px;color:#fff;font-family:Cairo,sans-serif;font-size:14px;font-weight:900;cursor:pointer;margin-bottom:10px;">📱 واتساب أ. Yousab - 01287800627</button>
+        <button onclick="window.open('https://wa.me/201202591476','_blank')" style="width:100%;background:linear-gradient(135deg,#25D366,#1da851);border:none;border-radius:14px;padding:14px;color:#fff;font-family:Cairo,sans-serif;font-size:14px;font-weight:900;cursor:pointer;">📱 واتساب أ. باسم - 01202591476</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Supabase Init ──
+const sb = supabase.createClient('https://ipbrpqgsdndizotxyxrv.supabase.co', 'sb_publishable_PCiMAUch-I1Ia1OrBe64IA_X2q4Zo1j');
+
+async function sbSave(key, value) {
+  try { await sb.from('yh_data').upsert([{id: key, value: JSON.stringify(value)}]); } catch(e) { console.warn(e); }
+}
+async function sbGet(key) {
+  try {
+    const {data} = await sb.from('yh_data').select('*').eq('id', key).single();
+    return data ? JSON.parse(data.value) : null;
+  } catch(e) { return null; }
+}
 
 async function saveToFirebase() {
-  await fbSave('platform','users',{list:users});
-  await fbSave('platform','lectures',{list:lectures});
-  await fbSave('platform','videos',{list:videos});
-  await fbSave('platform','files',{list:files});
-  await fbSave('platform','quizzes',{list:quizzes});
-  await fbSave('platform','progress',progress);
-  await fbSave('platform','prices',{p1:localStorage.getItem('price_1')||'150',p2:localStorage.getItem('price_2')||'175',p3:localStorage.getItem('price_3')||'200'});
-  await fbSave('platform','notifications',{list:notifications});
-  await fbSave('platform','convs',{list:JSON.parse(localStorage.getItem('yh_bot_convs')||'[]')});
+  await sbSave('users',{list:users});
+  await sbSave('lectures',{list:lectures});
+  await sbSave('videos',{list:videos});
+  await sbSave('files',{list:files});
+  await sbSave('quizzes',{list:quizzes});
+  await sbSave('progress',progress);
+  await sbSave('prices',{p1:localStorage.getItem('price_1')||'150',p2:localStorage.getItem('price_2')||'175',p3:localStorage.getItem('price_3')||'200'});
+  await sbSave('notifications',{list:notifications});
+  await sbSave('convs',{list:JSON.parse(localStorage.getItem('yh_bot_convs')||'[]')});
 }
 
 async function loadFromFirebase() {
   try {
     const [u,l,v,f,q,p,pr,n,c,ak] = await Promise.all([
-      fbGet('platform','users'), fbGet('platform','lectures'), fbGet('platform','videos'),
-      fbGet('platform','files'), fbGet('platform','quizzes'), fbGet('platform','progress'),
-      fbGet('platform','prices'), fbGet('platform','notifications'), fbGet('platform','convs'),
-      fbGet('platform','apikey')
+      sbGet('users'), sbGet('lectures'), sbGet('videos'),
+      sbGet('files'), sbGet('quizzes'), sbGet('progress'),
+      sbGet('prices'), sbGet('notifications'), sbGet('convs'),
+      sbGet('apikey')
     ]);
     if(u) users = u.list||[];
     if(l) lectures = l.list||[];
@@ -402,6 +476,8 @@ async function loadFromFirebase() {
     if(n) notifications = n.list||[];
     if(c) localStorage.setItem('yh_bot_convs',JSON.stringify(c.list||[]));
     if(ak && ak.k) localStorage.setItem('yh_anthropic_key', ak.k);
+    const attData = await sbGet('attendance');
+    if(attData) localStorage.setItem('yh_attendance', JSON.stringify(attData));
     localStorage.setItem('yh_users',JSON.stringify(users));
     localStorage.setItem('yh_lectures',JSON.stringify(lectures));
     localStorage.setItem('yh_videos',JSON.stringify(videos));
@@ -410,7 +486,7 @@ async function loadFromFirebase() {
     localStorage.setItem('yh_progress',JSON.stringify(progress));
     localStorage.setItem('yh_notifs',JSON.stringify(notifications));
     return true;
-  } catch(e) { console.warn('Firebase load error',e); return false; }
+  } catch(e) { console.warn('Supabase load error',e); return false; }
 }
 
 // ── Data ──
@@ -480,7 +556,21 @@ function register() {
 }
 
 function subscribeNow() {
-  // Show modal with two whatsapp numbers
+  const h = new Date().getHours();
+  if(h < 6) {
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:24px;width:100%;max-width:340px;padding:30px;text-align:center;">
+      <div style="font-size:48px;margin-bottom:12px;">🌙</div>
+      <div style="font-size:17px;font-weight:900;margin-bottom:8px;">الاشتراك مغلق حالياً</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.8;">خدمة الاشتراك متاحة من الساعة 6 الصبح<br>حاول تاني بعد الفجر 😊</div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 24px;color:var(--muted);font-family:Cairo,sans-serif;font-size:14px;cursor:pointer;">حسناً</button>
+    </div>`;
+    document.body.appendChild(modal);
+    return;
+  }
+  const greeting = h >= 6 && h < 12 ? 'صباح الخير' : h >= 12 && h < 18 ? 'نهارك سعيد' : 'مساء الخير';
+  const msg = encodeURIComponent(greeting + ' يا أ. Yousab 🌹\nأنا ' + currentUser.name + ' من ' + gradeNames[currentUser.grade] + '\nعايز أشترك في ' + prices[currentUser.grade].name);
   const modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;padding:20px;';
   modal.innerHTML = `
@@ -491,15 +581,15 @@ function subscribeNow() {
         <div style="font-size:12px;color:var(--muted);margin-top:4px;">اختار رقم للتواصل مع الأستاذ</div>
       </div>
       <div style="padding:20px;display:flex;flex-direction:column;gap:10px;">
-        <button onclick="window.open('https://wa.me/201287800627?text=السلام عليكم أ. Yousab، عايز أشترك في ${prices[currentUser.grade].name}','_blank')" 
-          style="background:linear-gradient(135deg,#25D366,#1da851);border:none;border-radius:14px;padding:14px;color:#fff;font-family:Cairo,sans-serif;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
-          📞 01287800627
+        <button onclick="window.open('https://wa.me/201287800627?text=${msg}','_blank')"
+          style="background:linear-gradient(135deg,#25D366,#1da851);border:none;border-radius:14px;padding:14px;color:#fff;font-family:Cairo,sans-serif;font-size:14px;font-weight:900;cursor:pointer;">
+          📞 أ. Yousab - 01287800627
         </button>
-        <button onclick="window.open('https://wa.me/201202591476?text=السلام عليكم أ. Yousab، عايز أشترك في ${prices[currentUser.grade].name}','_blank')"
-          style="background:linear-gradient(135deg,#25D366,#1da851);border:none;border-radius:14px;padding:14px;color:#fff;font-family:Cairo,sans-serif;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
-          📞 01202591476
+        <button onclick="window.open('https://wa.me/201202591476?text=${msg}','_blank')"
+          style="background:linear-gradient(135deg,#25D366,#1da851);border:none;border-radius:14px;padding:14px;color:#fff;font-family:Cairo,sans-serif;font-size:14px;font-weight:900;cursor:pointer;">
+          📞 أ. باسم - 01202591476
         </button>
-        <button onclick="this.closest('[style*=fixed]').remove()" 
+        <button onclick="this.closest('[style*=fixed]').remove()"
           style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;color:var(--muted);font-family:Cairo,sans-serif;font-size:14px;cursor:pointer;">
           إلغاء
         </button>
@@ -639,10 +729,14 @@ function openLectureDetail(lecId) {
   const grade = currentUser.grade;
   const lecVideos = videos.filter(v=>v.lectureId===lecId);
   document.getElementById('lectureVideosList').innerHTML = lecVideos.length ?
-    lecVideos.map(v=>`<div class="video-item" onclick="window.open('${v.url}','_blank')">
-      <div class="video-thumb-sm">▶️</div>
-      <div style="flex:1;"><div class="video-title">${v.title}</div><div class="video-meta">${v.desc||''}</div></div>
-    </div>`).join('') : '<div style="text-align:center;padding:30px;color:var(--muted);">لا توجد فيديوهات بعد</div>';
+    lecVideos.map(v=>{
+      const isYT = v.type==='youtube' || (v.url&&(v.url.includes('youtube')||v.url.includes('youtu.be')));
+      return `<div class="video-item" onclick="${isYT ? `window.open('${v.url}','_blank')` : `playVideoModal('${v.url}','${v.title}')`}">
+        <div class="video-thumb-sm">${isYT?'▶️':'🎬'}</div>
+        <div style="flex:1;"><div class="video-title">${v.title}</div><div class="video-meta">${v.desc||''} ${isYT?'· YouTube':'· فيديو مرفوع'}</div></div>
+        <div style="font-size:11px;color:var(--primary);font-weight:700;">${isYT?'يوتيوب':'▶ شغّل'}</div>
+      </div>`;
+    }).join('') : '<div style="text-align:center;padding:30px;color:var(--muted);">لا توجد فيديوهات بعد</div>';
   // Files
   const lecFiles = files.filter(f=>f.lectureId===lecId);
   document.getElementById('lectureFilesList').innerHTML = lecFiles.length ?
@@ -1142,12 +1236,49 @@ function openAdminPanel() {
       <!-- VIDEOS TAB -->
       <div class="admin-section" id="atab-videos">
         <h2>🎬 إضافة فيديو</h2>
+
+        <!-- Source toggle -->
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <button onclick="setVidSource('file',this)" id="srcFileBtn" class="admin-tab-btn active" style="flex:1;">📁 رفع من الجهاز</button>
+          <button onclick="setVidSource('youtube',this)" id="srcYTBtn" class="admin-tab-btn" style="flex:1;">▶️ YouTube</button>
+        </div>
+
+        <!-- File upload -->
+        <div id="vidFileArea">
+          <label style="display:block;background:rgba(108,99,255,0.08);border:2px dashed var(--primary);border-radius:14px;padding:24px;text-align:center;cursor:pointer;margin-bottom:10px;">
+            <div style="font-size:32px;margin-bottom:8px;">🎬</div>
+            <div style="font-size:13px;font-weight:800;color:var(--primary);">اضغط لاختيار الفيديو</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">MP4, MOV, AVI - أقصى حجم 500MB</div>
+            <input type="file" id="aVidFile" accept="video/*" style="display:none;" onchange="previewVideo(this)">
+          </label>
+          <div id="vidPreview" style="display:none;margin-bottom:10px;">
+            <video id="vidPreviewEl" style="width:100%;border-radius:12px;max-height:200px;" controls></video>
+            <div id="vidFileName" style="font-size:12px;color:var(--muted);margin-top:6px;text-align:center;"></div>
+          </div>
+          <div id="vidUploadProgress" style="display:none;margin-bottom:10px;">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:6px;" id="vidProgressText">جاري الرفع...</div>
+            <div style="height:6px;background:var(--border);border-radius:99px;overflow:hidden;">
+              <div id="vidProgressBar" style="height:100%;background:linear-gradient(90deg,var(--primary),var(--primary2));border-radius:99px;width:0%;transition:width 0.3s;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- YouTube -->
+        <div id="vidYTArea" style="display:none;">
+          <input class="admin-input" id="aVidUrl" placeholder="رابط YouTube">
+        </div>
+
         <input class="admin-input" id="aVidTitle" placeholder="عنوان الفيديو">
-        <input class="admin-input" id="aVidUrl" placeholder="رابط YouTube">
         <input class="admin-input" id="aVidDesc" placeholder="وصف الفيديو (اختياري)">
-        <select class="admin-input" id="aVidGrade"><option value="">اختار الصف</option><option value="1">أول إعدادي</option><option value="2">ثاني إعدادي</option><option value="3">ثالث إعدادي</option></select>
+        <select class="admin-input" id="aVidGrade" onchange="loadLecturesForVideo()">
+          <option value="">اختار الصف</option>
+          <option value="1">أول إعدادي</option>
+          <option value="2">ثاني إعدادي</option>
+          <option value="3">ثالث إعدادي</option>
+        </select>
         <select class="admin-input" id="aVidLecture"><option value="">اختار المحاضرة</option></select>
-        <button class="admin-btn" onclick="addVideo()">➕ إضافة الفيديو</button>
+        <button class="admin-btn" id="addVidBtn" onclick="addVideo()">➕ إضافة الفيديو</button>
+
         <h2 style="margin-top:20px;">الفيديوهات</h2>
         <div id="aVideosList"></div>
       </div>
@@ -1262,7 +1393,23 @@ function openAdminPanel() {
         <button class="admin-btn" onclick="grantExtra()">✅ منح الفرصة</button>
       </div>
 
-      <!-- CONVS TAB -->
+      <!-- TTENDANCE TAB -->
+      <div class="admin-section" id="atab-attendance">
+        <h2>📅 تسجيل الحضور والغياب</h2>
+        <select class="admin-input" id="aAttGrade" onchange="renderAttendanceStudents()">
+          <option value="">اختار الصف</option>
+          <option value="1">الصف الأول الإعدادي</option>
+          <option value="2">الصف الثاني الإعدادي</option>
+          <option value="3">الصف الثالث الإعدادي</option>
+        </select>
+        <input type="date" class="admin-input" id="aAttDate">
+        <div id="attendanceStudentsList" style="margin-top:12px;"></div>
+        <button class="admin-btn" onclick="saveAttendance()" style="margin-top:12px;">💾 حفظ الحضور</button>
+        <h2 style="margin-top:20px;">📋 سجل الحضور</h2>
+        <div id="attendanceLog"></div>
+      </div>
+
+      <!-- -- CONVS TAB -->
       <div class="admin-section" id="atab-convs">
         <h2>💬 محادثات الدعم</h2>
         <div id="aConvsList"></div>
@@ -1359,6 +1506,7 @@ function switchAdminTab(tab, btn) {
   document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.admin-tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('atab-'+tab).classList.add('active');
+  if(tab==='attendance') { renderAttendanceStudents(); renderAttendanceLog(); }
   btn.classList.add('active');
   if(tab==='students') renderAdminStudents();
   if(tab==='convs') renderAdminConvsList();
@@ -1387,7 +1535,7 @@ async function saveFirstKey(btn) {
   if(!key) return alert('أدخل المفتاح أولاً!');
   if(!key.startsWith('sk-ant-')) return alert('المفتاح غير صحيح!');
   localStorage.setItem('yh_anthropic_key', key);
-  await fbSave('platform', 'apikey', {k: key});
+  await sbSave('apikey', {k: key});
   btn.closest('[style*=fixed]').remove();
   showToast('تم حفظ مفتاح API بنجاح 🔑');
 }
@@ -1398,7 +1546,7 @@ async function saveApiKey() {
   if (!key) return alert('أدخل المفتاح أولاً!');
   if (!key.startsWith('sk-ant-')) return alert('المفتاح غير صحيح! يجب أن يبدأ بـ sk-ant-');
   localStorage.setItem('yh_anthropic_key', key);
-  await fbSave('platform', 'apikey', {k: key});
+  await sbSave('apikey', {k: key});
   input.value = '';
   renderApiKeyTab();
   showToast('تم حفظ مفتاح API بنجاح 🔑');
@@ -1451,320 +1599,92 @@ function renderAdminLectures() {
     </div>`).join('') : '<div style="text-align:center;padding:20px;color:var(--muted);">لا توجد محاضرات</div>';
 }
 
-function addVideo() {
+let vidSource = 'file';
+let uploadedVidUrl = '';
+
+function setVidSource(src, btn) {
+  vidSource = src;
+  document.querySelectorAll('#vidFileArea,#vidYTArea').forEach(el=>el.style.display='none');
+  document.getElementById(src==='file'?'vidFileArea':'vidYTArea').style.display='block';
+  document.getElementById('srcFileBtn').classList.toggle('active', src==='file');
+  document.getElementById('srcYTBtn').classList.toggle('active', src==='youtube');
+  uploadedVidUrl = '';
+}
+
+function previewVideo(input) {
+  const file = input.files[0]; if(!file) return;
+  const url = URL.createObjectURL(file);
+  document.getElementById('vidPreview').style.display='block';
+  document.getElementById('vidPreviewEl').src = url;
+  document.getElementById('vidFileName').textContent = file.name + ' (' + (file.size/1024/1024).toFixed(1) + ' MB)';
+}
+
+async function uploadVideoFile() {
+  const file = document.getElementById('aVidFile').files[0];
+  if(!file) return null;
+  const progressArea = document.getElementById('vidUploadProgress');
+  const progressBar = document.getElementById('vidProgressBar');
+  const progressText = document.getElementById('vidProgressText');
+  progressArea.style.display='block';
+  return new Promise((resolve, reject) => {
+    const fileName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+    // Simulate progress
+    let pct = 0;
+    const progInterval = setInterval(()=>{
+      pct = Math.min(pct+5, 90);
+      progressBar.style.width = pct+'%';
+      progressText.textContent = 'جاري الرفع... '+pct+'%';
+    }, 200);
+    try {
+      const {data, error} = await sb.storage.from('yh-videos').upload(fileName, file, {cacheControl:'3600', upsert:false});
+      clearInterval(progInterval);
+      if(error) { progressArea.style.display='none'; reject(error); return; }
+      const {data: urlData} = sb.storage.from('yh-videos').getPublicUrl(fileName);
+      progressBar.style.width = '100%';
+      progressText.textContent = 'تم الرفع ✅';
+      setTimeout(()=>progressArea.style.display='none', 2000);
+      resolve(urlData.publicUrl);
+    } catch(err) { clearInterval(progInterval); progressArea.style.display='none'; reject(err); }
+  });
+}
+
+async function addVideo() {
   const title=document.getElementById('aVidTitle').value.trim();
-  const url=document.getElementById('aVidUrl').value.trim();
   const desc=document.getElementById('aVidDesc').value.trim();
   const grade=document.getElementById('aVidGrade').value;
   const lectureId=document.getElementById('aVidLecture').value;
-  if(!title||!url||!grade||!lectureId) return alert('اكمل البيانات!');
-  videos.push({id:'vid_'+Date.now(),title,url,desc,grade,lectureId});
-  // Auto notify students
-  const lecName = lectures.find(l=>l.id===lectureId)?.title || '';
-  notifications.push({id:'n_'+Date.now(),title:'🎬 فيديو جديد!',body:`تم إضافة فيديو جديد "${title}" في محاضرة "${lecName}"`,to:grade,date:new Date().toLocaleDateString('ar-EG'),time:new Date().toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})});
-  saveAll(); renderAdminVideos();
-  ['aVidTitle','aVidUrl','aVidDesc'].forEach(id=>document.getElementById(id).value='');
-  showToast('تم إضافة الفيديو وإرسال إشعار للطلاب ✅');
-}
+  if(!title||!grade||!lectureId) return showToast('ادخل العنوان والصف والمحاضرة!');
 
-function renderAdminVideos() {
-  const el=document.getElementById('aVideosList'); if(!el) return;
-  el.innerHTML = videos.length ? videos.map(v=>`
-    <div class="card" style="display:flex;align-items:center;gap:10px;">
-      <div style="flex:1;"><div style="font-size:13px;font-weight:800;">${v.title}</div><div style="font-size:11px;color:var(--muted);">${gradeNames[v.grade]||v.grade}</div></div>
-      <button onclick="deleteVideo('${v.id}')" style="background:rgba(255,87,87,0.15);border:1px solid rgba(255,87,87,0.3);border-radius:8px;padding:6px 12px;color:var(--red);font-family:Cairo,sans-serif;font-size:12px;cursor:pointer;">حذف</button>
-    </div>`).join('') : '<div style="text-align:center;padding:20px;color:var(--muted);">لا توجد فيديوهات</div>';
-}
-function deleteVideo(id) { if(!confirm('حذف؟')) return; videos=videos.filter(v=>v.id!==id); saveAll(); renderAdminVideos(); }
+  const btn = document.getElementById('addVidBtn');
+  btn.textContent = '⏳ جاري الإضافة...';
+  btn.disabled = true;
 
-function addFile() {
-  const title=document.getElementById('aFileTitle').value.trim();
-  const url=document.getElementById('aFileUrl').value.trim();
-  const grade=document.getElementById('aFileGrade').value;
-  const lectureId=document.getElementById('aFileLecture').value;
-  if(!title||!url||!grade||!lectureId) return alert('اكمل البيانات!');
-  files.push({id:'file_'+Date.now(),title,url,grade,lectureId});
-  // Auto notify students
-  const lecNameF = lectures.find(l=>l.id===lectureId)?.title || '';
-  notifications.push({id:'n_'+Date.now(),title:'📁 ملف جديد!',body:`تم إضافة ملف جديد "${title}" في محاضرة "${lecNameF}"`,to:grade,date:new Date().toLocaleDateString('ar-EG'),time:new Date().toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})});
-  saveAll(); renderAdminFiles();
-  ['aFileTitle','aFileUrl'].forEach(id=>document.getElementById(id).value='');
-  showToast('تم إضافة الملف وإرسال إشعار للطلاب ✅');
-}
-
-function renderAdminFiles() {
-  const el=document.getElementById('aFilesList'); if(!el) return;
-  el.innerHTML = files.length ? files.map(f=>`
-    <div class="card" style="display:flex;align-items:center;gap:10px;">
-      <div style="flex:1;"><div style="font-size:13px;font-weight:800;">${f.title}</div><div style="font-size:11px;color:var(--muted);">${gradeNames[f.grade]||f.grade}</div></div>
-      <button onclick="deleteFile('${f.id}')" style="background:rgba(255,87,87,0.15);border:1px solid rgba(255,87,87,0.3);border-radius:8px;padding:6px 12px;color:var(--red);font-family:Cairo,sans-serif;font-size:12px;cursor:pointer;">حذف</button>
-    </div>`).join('') : '<div style="text-align:center;padding:20px;color:var(--muted);">لا توجد ملفات</div>';
-}
-function deleteFile(id) { if(!confirm('حذف؟')) return; files=files.filter(f=>f.id!==id); saveAll(); renderAdminFiles(); }
-
-function addQuizQ() {
-  const grade=document.getElementById('aQGrade').value;
-  const lectureId=document.getElementById('aQLecture').value;
-  const question=document.getElementById('aQQuestion').value.trim();
-  const opt0=document.getElementById('aQOpt0').value.trim();
-  const opt1=document.getElementById('aQOpt1').value.trim();
-  const opt2=document.getElementById('aQOpt2').value.trim();
-  const opt3=document.getElementById('aQOpt3').value.trim();
-  const correct=parseInt(document.getElementById('aQCorrect').value);
-  if(!grade||!lectureId||!question||!opt0||!opt1||!opt2||!opt3) return alert('اكمل كل البيانات!');
-  const isFirstQ = !quizzes.find(q=>q.lectureId===lectureId);
-  quizzes.push({id:'q_'+Date.now(),grade,lectureId,question,options:[opt0,opt1,opt2,opt3],correct});
-  // Auto notify only when first question added (= new quiz)
-  if(isFirstQ) {
-    const lecNameQ = lectures.find(l=>l.id===lectureId)?.title || '';
-    notifications.push({id:'n_'+Date.now(),title:'📝 كويز جديد!',body:`تم إضافة كويز جديد لمحاضرة "${lecNameQ}" - ابدأ الاختبار دلوقتي!`,to:grade,date:new Date().toLocaleDateString('ar-EG'),time:new Date().toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})});
-  }
-  saveAll(); renderAdminQuizzes();
-  ['aQQuestion','aQOpt0','aQOpt1','aQOpt2','aQOpt3'].forEach(id=>document.getElementById(id).value='');
-  showToast('تم إضافة السؤال ✅');
-}
-
-function renderAdminQuizzes() {
-  const el=document.getElementById('aQuizList'); if(!el) return;
-  el.innerHTML = quizzes.length ? quizzes.map((q,i)=>`
-    <div class="card" style="display:flex;align-items:center;gap:10px;">
-      <div style="flex:1;"><div style="font-size:13px;font-weight:800;">${i+1}. ${q.question}</div><div style="font-size:11px;color:var(--green);">✓ ${q.options[q.correct]}</div></div>
-      <button onclick="deleteQuiz('${q.id}')" style="background:rgba(255,87,87,0.15);border:1px solid rgba(255,87,87,0.3);border-radius:8px;padding:6px 12px;color:var(--red);font-family:Cairo,sans-serif;font-size:12px;cursor:pointer;">حذف</button>
-    </div>`).join('') : '<div style="text-align:center;padding:20px;color:var(--muted);">لا توجد أسئلة</div>';
-}
-function deleteQuiz(id) { if(!confirm('حذف؟')) return; quizzes=quizzes.filter(q=>q.id!==id); saveAll(); renderAdminQuizzes(); }
-
-function sendNotif() {
-  const title=document.getElementById('aNTitle').value.trim();
-  const body=document.getElementById('aNBody').value.trim();
-  const to=document.getElementById('aNTo').value;
-  const specificPhone=document.getElementById('aNSpecificPhone').value;
-  if(!title||!body) return alert('اكتب العنوان والنص!');
-  if(to==='specific'&&!specificPhone) return alert('اختار الطالب أولاً!');
-  notifications.push({id:'n_'+Date.now(),title,body,to:to==='specific'?specificPhone:to,date:new Date().toLocaleDateString('ar-EG'),time:new Date().toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})});
-  saveAll(); renderAdminNotifs();
-  ['aNTitle','aNBody'].forEach(id=>document.getElementById(id).value='');
-  showToast('تم إرسال الإشعار ✅');
-}
-
-function searchStudentNotif() {
-  const q=document.getElementById('aNSearch').value.trim().toLowerCase();
-  const results=users.filter(u=>u.name.toLowerCase().includes(q)||u.phone.includes(q)).slice(0,5);
-  document.getElementById('aNSearchResults').innerHTML=results.map(u=>`
-    <div onclick="selectStudentNotif('${u.phone}','${u.name}')" style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:6px;cursor:pointer;font-size:13px;font-weight:700;">${u.name} - ${u.phone}</div>`).join('');
-}
-
-function selectStudentNotif(phone,name) {
-  document.getElementById('aNSpecificPhone').value=phone;
-  document.getElementById('aNSearch').value=name+' - '+phone;
-  document.getElementById('aNSearchResults').innerHTML='';
-}
-
-function renderAdminNotifs() {
-  const el=document.getElementById('aNotifsListAdmin'); if(!el) return;
-  const sorted=[...notifications].reverse();
-  el.innerHTML=sorted.length ? sorted.map(n=>`
-    <div class="card" style="display:flex;align-items:center;gap:10px;">
-      <div style="flex:1;"><div style="font-size:13px;font-weight:800;">${n.title}</div><div style="font-size:11px;color:var(--muted);">${n.body.substring(0,50)}... · ${n.to==='all'?'الكل':gradeNames[n.to]||n.to}</div></div>
-      <button onclick="deleteNotif('${n.id}')" style="background:rgba(255,87,87,0.15);border:1px solid rgba(255,87,87,0.3);border-radius:8px;padding:6px 12px;color:var(--red);font-family:Cairo,sans-serif;font-size:12px;cursor:pointer;">حذف</button>
-    </div>`).join('') : '<div style="text-align:center;padding:20px;color:var(--muted);">لا توجد إشعارات</div>';
-}
-function deleteNotif(id) { notifications=notifications.filter(n=>n.id!==id); saveAll(); renderAdminNotifs(); }
-
-function savePrices() {
-  localStorage.setItem('price_1',document.getElementById('aPrice1').value);
-  localStorage.setItem('price_2',document.getElementById('aPrice2').value);
-  localStorage.setItem('price_3',document.getElementById('aPrice3').value);
-  prices['1'].price=document.getElementById('aPrice1').value;
-  prices['2'].price=document.getElementById('aPrice2').value;
-  prices['3'].price=document.getElementById('aPrice3').value;
-  saveAll(); showToast('تم حفظ الأسعار ✅');
-}
-
-function renderAdminStudents() {
-  const el=document.getElementById('studentsTableWrap'); if(!el) return;
-  if(!users.length) { el.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted);">لا يوجد طلاب مسجلين</div>'; return; }
-  el.innerHTML=`<div style="margin-bottom:10px;font-size:13px;color:var(--muted);">إجمالي: <strong style="color:var(--text);">${users.length}</strong> طالب</div>`+
-  users.map((u,i)=>`
-    <div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--primary2));display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex-shrink:0;">${i+1}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:900;">${u.name}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
-          <span style="font-size:10px;background:rgba(61,214,140,0.15);border:1px solid rgba(61,214,140,0.3);border-radius:5px;padding:1px 7px;color:var(--green);direction:ltr;">${u.phone}</span>
-          <span style="font-size:10px;background:rgba(108,99,255,0.15);border:1px solid rgba(108,99,255,0.3);border-radius:5px;padding:1px 7px;color:var(--primary);">${gradeNames[u.grade]||u.grade}</span>
-        </div>
-      </div>
-      <button onclick="deleteStudent('${u.phone}')" style="background:rgba(255,87,87,0.15);border:1px solid rgba(255,87,87,0.3);border-radius:8px;padding:6px 10px;color:var(--red);font-family:Cairo,sans-serif;font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0;">حذف 🗑</button>
-    </div>`).join('');
-}
-
-function deleteStudent(phone) {
-  const s=users.find(u=>u.phone===phone); if(!s) return;
-  if(!confirm(`هل تريد حذف حساب "${s.name}"؟\nسيتم حذف كل بياناته نهائياً!`)) return;
-  users=users.filter(u=>u.phone!==phone);
-  Object.keys(progress).filter(k=>k.startsWith(phone+'_')).forEach(k=>delete progress[k]);
-  let convs=JSON.parse(localStorage.getItem('yh_bot_convs')||'[]');
-  convs=convs.filter(c=>c.phone!==phone);
-  localStorage.setItem('yh_bot_convs',JSON.stringify(convs));
-  saveAll(); renderAdminStudents();
-  showToast('تم حذف حساب '+s.name+' ✅');
-}
-
-function grantExtra() {
-  const phone=document.getElementById('aExtraPhone').value.trim();
-  const lecId=document.getElementById('aExtraLecture').value;
-  if(!phone||!lecId) return alert('اكمل البيانات!');
-  const key=phone+'_lec_'+lecId;
-  progress[key+'_extra']=true;
-  saveAll();
-  showToast('تم منح الفرصة الإضافية ✅');
-  document.getElementById('aExtraPhone').value='';
-}
-
-function renderAdminConvs() {
-  const el=document.getElementById('aConvsList'); if(!el) return;
-  const convs=JSON.parse(localStorage.getItem('yh_bot_convs')||'[]');
-  if(!convs.length) { el.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted);">لا توجد محادثات</div>'; return; }
-  el.innerHTML=convs.map((c,i)=>`
-    <div class="card" style="cursor:pointer;" onclick="showConvDetail(${i})">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div><div style="font-size:13px;font-weight:900;">${c.name}</div><div style="font-size:11px;color:var(--muted);direction:ltr;">${c.phone} · ${c.date}</div></div>
-        <div style="font-size:12px;color:var(--primary);font-weight:700;">${c.messages?.length||0} رسالة ←</div>
-      </div>
-    </div>`).join('');
-}
-
-function showConvDetail(idx) {
-  const convs=JSON.parse(localStorage.getItem('yh_bot_convs')||'[]');
-  const c=convs[idx]; if(!c) return;
-  const detail=document.getElementById('aConvDetail');
-  detail.style.display='block';
-  detail.innerHTML=`
-    <button onclick="document.getElementById('aConvDetail').style.display='none'" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px;color:var(--muted);font-family:Cairo,sans-serif;font-size:12px;cursor:pointer;margin-bottom:12px;">← رجوع</button>
-    <div class="card"><div style="font-size:14px;font-weight:900;margin-bottom:4px;">${c.name}</div><div style="font-size:12px;color:var(--muted);direction:ltr;">${c.phone}</div></div>
-    ${(c.messages||[]).map(m=>`<div style="display:flex;justify-content:${m.from==='user'?'flex-end':'flex-start'};margin-bottom:8px;">
-      <div style="background:${m.from==='user'?'linear-gradient(135deg,var(--primary),var(--primary2))':'var(--card)'};border:${m.from==='user'?'none':'1px solid var(--border)'};border-radius:12px;padding:8px 14px;font-size:12px;max-width:80%;line-height:1.7;">${m.text}</div>
-    </div>`).join('')}`;
-}
-
-function changeBg() {
-  const url=document.getElementById('aBgUrl').value.trim();
-  if(!url) return;
-  applyBg(url);
-  showToast('تم تغيير الخلفية ✅');
-}
-
-let uploadedBgData = null;
-
-function uploadBgImage(input) {
-  const file = input.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    uploadedBgData = e.target.result;
-    document.getElementById('bgPreviewImg').src = uploadedBgData;
-    document.getElementById('bgPreview').style.display = 'block';
-    document.getElementById('bgDropZone').style.borderColor = 'var(--primary)';
-  };
-  reader.readAsDataURL(file);
-}
-
-function applyBgFromUpload() {
-  if(!uploadedBgData) return;
-  applyBg(uploadedBgData);
-  showToast('تم تغيير الخلفية ✅');
-}
-
-function applyBg(url) {
-  document.querySelectorAll('.bg-img').forEach(el=>el.style.backgroundImage=`url('${url}')`);
-  localStorage.setItem('yh_bg_url', url);
-  // Save to Firebase so all students see it
-  fbSave('platform', 'bg', {url: url}).catch(e=>console.warn(e));
-}
-
-// ── ESSAY QUESTIONS ──
-let essayAnswers = {}; // {quizId: {qIndex: {answer, status, teacherVerdict}}}
-
-function addEssayQ() {
-  const grade = document.getElementById('aEssayGrade').value;
-  const lectureId = document.getElementById('aEssayLecture').value;
-  const question = document.getElementById('aEssayQuestion').value.trim();
-  const modelAnswer = document.getElementById('aEssayModel').value.trim();
-  if(!grade||!lectureId||!question||!modelAnswer) return alert('اكمل كل البيانات!');
-  quizzes.push({id:'q_'+Date.now(),grade,lectureId,question,type:'essay',modelAnswer});
-  saveAll(); renderAdminQuizzes();
-  ['aEssayQuestion','aEssayModel'].forEach(id=>document.getElementById(id).value='');
-  showToast('تم إضافة السؤال المقالي ✅');
-}
-
-function renderEssayReview() {
-  const el = document.getElementById('essayReviewList'); if(!el) return;
-  const pending = JSON.parse(localStorage.getItem('yh_essay_pending')||'[]');
-  if(!pending.length) { el.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted);">لا توجد إجابات محتاجة مراجعة ✅</div>'; return; }
-  el.innerHTML = pending.map((p,i)=>`
-    <div class="card" style="border-color:rgba(255,184,0,0.3);margin-bottom:12px;">
-      <div style="font-size:12px;color:var(--accent);font-weight:800;margin-bottom:8px;">📝 ${p.studentName} · ${p.date}</div>
-      <div style="font-size:13px;font-weight:800;margin-bottom:8px;">${p.question}</div>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">إجابة الطالب:</div>
-        <div style="font-size:13px;line-height:1.7;">${p.studentAnswer}</div>
-      </div>
-      <div style="background:rgba(61,214,140,0.08);border:1px solid rgba(61,214,140,0.2);border-radius:10px;padding:10px;margin-bottom:12px;">
-        <div style="font-size:11px;color:var(--green);margin-bottom:4px;">الإجابة النموذجية:</div>
-        <div style="font-size:13px;line-height:1.7;">${p.modelAnswer}</div>
-      </div>
-      <div style="display:flex;gap:8px;">
-        <button onclick="verdictEssay(${i},'accept')" style="flex:1;background:rgba(61,214,140,0.2);border:1.5px solid var(--green);border-radius:10px;padding:10px;color:var(--green);font-family:Cairo,sans-serif;font-size:13px;font-weight:800;cursor:pointer;">✅ قبول</button>
-        <button onclick="verdictEssay(${i},'reject')" style="flex:1;background:rgba(255,87,87,0.2);border:1.5px solid var(--red);border-radius:10px;padding:10px;color:var(--red);font-family:Cairo,sans-serif;font-size:13px;font-weight:800;cursor:pointer;">❌ رفض</button>
-      </div>
-    </div>`).join('');
-}
-
-function verdictEssay(i, verdict) {
-  let pending = JSON.parse(localStorage.getItem('yh_essay_pending')||'[]');
-  const item = pending[i];
-  if(!item) return;
-  // Save verdict to progress
-  const key = item.studentPhone+'_essay_'+item.qId;
-  progress[key+'_verdict'] = verdict;
-  progress[key+'_done'] = true;
-  saveAll();
-  pending.splice(i,1);
-  localStorage.setItem('yh_essay_pending', JSON.stringify(pending));
-  renderEssayReview();
-  showToast(verdict==='accept'?'تم قبول الإجابة ✅':'تم رفض الإجابة ❌');
-}
-
-// ── AI QUIZ EXTRACTION ──
-// 🔐 API Key is stored securely in localStorage (set from Admin Panel → إعدادات API)
-// Never hardcode the key in the source code!
-function getAnthropicKey() {
-  return localStorage.getItem('yh_anthropic_key') || '';
-}
-let aiFileData = null;
-let aiFileType = null;
-let aiExtractedQuestions = [];
-
-function handleAiFile(input) {
-  const file = input.files[0]; if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    aiFileData = e.target.result.split(',')[1];
-    aiFileType = file.type;
-    document.getElementById('aiFilePreview').style.display = 'block';
-    if(file.type.startsWith('image/')) {
-      const img = document.getElementById('aiFileImg');
-      img.src = e.target.result; img.style.display = 'block';
-      document.getElementById('aiFileName').style.display = 'none';
+  let videoUrl = '';
+  try {
+    if(vidSource==='file') {
+      const file = document.getElementById('aVidFile').files[0];
+      if(!file) { showToast('اختار فيديو أولاً!'); btn.textContent='➕ إضافة الفيديو'; btn.disabled=false; return; }
+      videoUrl = await uploadVideoFile();
     } else {
-      document.getElementById('aiFileImg').style.display = 'none';
-      const fn = document.getElementById('aiFileName');
-      fn.textContent = '📄 ' + file.name; fn.style.display = 'block';
+      videoUrl = document.getElementById('aVidUrl').value.trim();
+      if(!videoUrl) { showToast('ادخل رابط YouTube!'); btn.textContent='➕ إضافة الفيديو'; btn.disabled=false; return; }
     }
-    document.getElementById('aiExtractBtn').style.display = 'block';
-  };
-  reader.readAsDataURL(file);
+
+    await (()=>{
+      const newVid2 = {id:'vid_'+Date.now()+'b', title, url:videoUrl, desc, grade, lectureId, type:vidSource, createdAt:new Date().toISOString()};
+      videos.push(newVid2);
+      saveAll();
+    })();
+
+    showToast('تم إضافة الفيديو ✅');
+    document.getElementById('aVidTitle').value='';
+    document.getElementById('aVidDesc').value='';
+    document.getElementById('aVidFile').value='';
+    document.getElementById('vidPreview').style.display='none';
+    uploadedVidUrl='';
+    loadAdminVideos();
+  } catch(e) { showToast('خطأ: '+e.message); }
+  btn.textContent='➕ إضافة الفيديو'; btn.disabled=false;
 }
 
 async function extractQuestionsAI() {
@@ -1915,9 +1835,9 @@ window.onload = async function() {
   if(loader) loader.style.display='flex';
   await loadFromFirebase();
   if(loader) loader.style.display='none';
-  // Load background from Firebase
+  // Load background from Supabase
   try {
-    const bgData = await fbGet('platform', 'bg');
+    const bgData = await sbGet('bg');
     if(bgData && bgData.url) {
       document.querySelectorAll('.bg-img').forEach(el=>el.style.backgroundImage=`url('${bgData.url}')`);
       localStorage.setItem('yh_bg_url', bgData.url);
@@ -1965,6 +1885,216 @@ function renderAdminConvsList() {
       <div style="font-size:12px;margin-top:6px;">${c.lastMsg||''}</div>
     </div>`).join('') : '<div style="text-align:center;color:var(--muted);padding:20px;">لا توجد محادثات</div>';
 }
+
+// ══════════ VIDEO MODAL PLAYER ══════════
+function playVideoModal(url, title) {
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;';
+  modal.innerHTML = `
+    <div style="width:100%;max-width:700px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:14px;font-weight:900;color:#fff;">${title}</div>
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="background:rgba(255,255,255,0.1);border:none;border-radius:10px;padding:8px 16px;color:#fff;font-family:Cairo,sans-serif;font-size:13px;cursor:pointer;">✕ إغلاق</button>
+      </div>
+      <video src="${url}" controls autoplay style="width:100%;border-radius:16px;max-height:70vh;background:#000;" controlsList="nodownload">
+        متصفحك لا يدعم تشغيل الفيديو
+      </video>
+    </div>`;
+  modal.onclick = (e) => { if(e.target===modal) modal.remove(); };
+  document.body.appendChild(modal);
+}
+
+
+// ══════════ LOGIN TABS ══════════
+function switchLoginTab(tab, btn) {
+  document.getElementById('loginForm').style.display = tab==='student' ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = 'none';
+  document.getElementById('parentLoginForm').style.display = tab==='parent' ? 'block' : 'none';
+  document.getElementById('tabStudentBtn').style.background = tab==='student' ? 'linear-gradient(135deg,var(--primary),var(--primary2))' : 'var(--card)';
+  document.getElementById('tabStudentBtn').style.color = tab==='student' ? '#fff' : 'var(--muted)';
+  document.getElementById('tabParentBtn').style.background = tab==='parent' ? 'linear-gradient(135deg,var(--primary),var(--primary2))' : 'var(--card)';
+  document.getElementById('tabParentBtn').style.color = tab==='parent' ? '#fff' : 'var(--muted)';
+}
+
+// ══════════ PARENT PORTAL ══════════
+let currentParentData = null;
+
+function loginParent() {
+  const studentPhone = document.getElementById('parentStudentPhone').value.trim();
+  const parentPhone = document.getElementById('parentPhone').value.trim();
+  const pass = document.getElementById('parentPass').value.trim();
+  const msgEl = document.getElementById('parentMsg');
+  if(!studentPhone||!parentPhone||!pass) { msgEl.textContent='اكمل كل البيانات!'; msgEl.className='login-msg error'; return; }
+  const student = users.find(u=>u.phone===studentPhone && u.pass===pass);
+  if(!student) { msgEl.textContent='بيانات غلط! تأكد من رقم الطالب وكلمة السر'; msgEl.className='login-msg error'; return; }
+  if(student.parent !== parentPhone) { msgEl.textContent='رقم ولي الأمر غلط!'; msgEl.className='login-msg error'; return; }
+  currentParentData = student;
+  openParentPortal();
+}
+
+function openParentPortal() {
+  const s = currentParentData;
+  document.getElementById('loginPage').classList.remove('active');
+  document.getElementById('parentPage').classList.add('active');
+  document.getElementById('parentWelcome').textContent = 'أهلاً بك في متابعة ' + s.name;
+  document.getElementById('parentStudentName').textContent = gradeNames[s.grade]||'';
+
+  // Count completed lectures
+  const gradeLecs = lectures.filter(l=>l.grade==s.grade);
+  let done=0, quizScores=[];
+  gradeLecs.forEach(l=>{
+    const key = s.phone+'_lec_'+l.id;
+    if(progress[key+'_passed']) done++;
+    const score = progress[key+'_score'];
+    if(score !== undefined) quizScores.push(score);
+  });
+  const avg = quizScores.length ? Math.round(quizScores.reduce((a,b)=>a+b,0)/quizScores.length) : 0;
+
+  document.getElementById('parentLecCount').textContent = done;
+  document.getElementById('parentQuizAvg').textContent = avg + '%';
+
+  // Attendance
+  const allAtt = JSON.parse(localStorage.getItem('yh_attendance')||'{}');
+  let presentDays=0, absentDays=0, attList=[];
+  Object.keys(allAtt).forEach(date=>{
+    const rec = allAtt[date];
+    if(rec[s.phone] !== undefined) {
+      if(rec[s.phone]) { presentDays++; attList.push({date, status:'حضر'}); }
+      else { absentDays++; attList.push({date, status:'غاب'}); }
+    }
+  });
+  document.getElementById('parentAttendCount').textContent = presentDays;
+  document.getElementById('parentAbsentCount').textContent = absentDays;
+
+  // Attendance list
+  const attEl = document.getElementById('parentAttendanceList');
+  attEl.innerHTML = attList.length ? attList.sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20).map(a=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:13px;">${a.date}</div>
+      <div style="font-size:12px;font-weight:800;padding:4px 12px;border-radius:20px;background:${a.status==='حضر'?'rgba(61,214,140,0.15)':'rgba(255,87,87,0.15)'};color:${a.status==='حضر'?'var(--green)':'var(--red)'};">${a.status==='حضر'?'✅ حضر':'❌ غاب'}</div>
+    </div>`).join('') : '<div style="text-align:center;color:var(--muted);padding:20px;">لا يوجد سجل حضور بعد</div>';
+
+  // Quiz grades
+  const quizEl = document.getElementById('parentQuizGrades');
+  const gradeItems = gradeLecs.map(l=>{
+    const key = s.phone+'_lec_'+l.id;
+    const score = progress[key+'_score'];
+    const passed = progress[key+'_passed'];
+    if(score === undefined) return null;
+    return {title: l.title, score, passed};
+  }).filter(Boolean);
+  quizEl.innerHTML = gradeItems.length ? gradeItems.map(g=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:13px;font-weight:700;">${g.title}</div>
+      <div style="font-size:13px;font-weight:900;color:${g.passed?'var(--green)':'var(--red)'};">${g.score}% ${g.passed?'✅':'❌'}</div>
+    </div>`).join('') : '<div style="text-align:center;color:var(--muted);padding:20px;">لا توجد درجات بعد</div>';
+}
+
+function logoutParent() {
+  currentParentData = null;
+  document.getElementById('parentPage').classList.remove('active');
+  document.getElementById('loginPage').classList.add('active');
+}
+
+function contactTeacherParent() {
+  if(!currentParentData) return;
+  const msg = `السلام عليكم أ. Yousab 🌹
+أنا ولي أمر الطالب ${currentParentData.name}
+عايز أعرف مستوى ابني ومتابعة تقدمه`;
+  window.open('https://wa.me/201287800627?text='+encodeURIComponent(msg),'_blank');
+}
+
+// ══════════ ATTENDANCE ADMIN ══════════
+function renderAttendanceStudents() {
+  const grade = document.getElementById('aAttGrade').value;
+  const el = document.getElementById('attendanceStudentsList');
+  if(!grade) { el.innerHTML=''; return; }
+  const gradeStudents = users.filter(u=>u.grade==grade);
+  if(!gradeStudents.length) { el.innerHTML='<div style="color:var(--muted);padding:10px;">لا يوجد طلاب في هذا الصف</div>'; return; }
+  
+  // Set today's date if empty
+  const dateEl = document.getElementById('aAttDate');
+  if(!dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
+  
+  el.innerHTML = gradeStudents.map(s=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;">
+      <div>
+        <div style="font-size:13px;font-weight:800;">${s.name}</div>
+        <div style="font-size:11px;color:var(--muted);">${s.phone}</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="markAtt('${s.phone}','present',this)" class="att-btn present-btn" style="background:rgba(61,214,140,0.15);border:1.5px solid var(--green);border-radius:10px;padding:8px 14px;color:var(--green);font-family:Cairo,sans-serif;font-size:12px;font-weight:800;cursor:pointer;">✅ حضر</button>
+        <button onclick="markAtt('${s.phone}','absent',this)" class="att-btn absent-btn" style="background:rgba(239,68,68,0.1);border:1.5px solid var(--red);border-radius:10px;padding:8px 14px;color:var(--red);font-family:Cairo,sans-serif;font-size:12px;font-weight:800;cursor:pointer;">❌ غاب</button>
+      </div>
+    </div>`).join('');
+}
+
+let attendanceData = {};
+function markAtt(phone, status, btn) {
+  attendanceData[phone] = status === 'present';
+  // Highlight selected
+  const row = btn.parentElement;
+  row.querySelectorAll('.att-btn').forEach(b=>b.style.opacity='0.5');
+  btn.style.opacity='1';
+  btn.style.transform='scale(1.05)';
+}
+
+function saveAttendance() {
+  const date = document.getElementById('aAttDate').value;
+  if(!date) return showToast('اختار التاريخ أولاً!');
+  if(!Object.keys(attendanceData).length) return showToast('سجل حضور الطلاب أولاً!');
+  const allAtt = JSON.parse(localStorage.getItem('yh_attendance')||'{}');
+  allAtt[date] = {...(allAtt[date]||{}), ...attendanceData};
+  localStorage.setItem('yh_attendance', JSON.stringify(allAtt));
+  // Save to Supabase
+  sbSave('attendance', allAtt).catch(e=>console.warn(e));
+  attendanceData = {};
+  showToast('تم حفظ الحضور ✅');
+  renderAttendanceLog();
+}
+
+function renderAttendanceLog() {
+  const el = document.getElementById('attendanceLog'); if(!el) return;
+  const allAtt = JSON.parse(localStorage.getItem('yh_attendance')||'{}');
+  const dates = Object.keys(allAtt).sort((a,b)=>b.localeCompare(a)).slice(0,10);
+  if(!dates.length) { el.innerHTML='<div style="color:var(--muted);padding:10px;">لا يوجد سجل بعد</div>'; return; }
+  el.innerHTML = dates.map(date=>{
+    const rec = allAtt[date];
+    const present = Object.values(rec).filter(v=>v).length;
+    const absent = Object.values(rec).filter(v=>!v).length;
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;">
+      <div style="font-size:13px;font-weight:800;margin-bottom:6px;">📅 ${date}</div>
+      <div style="display:flex;gap:10px;">
+        <span style="font-size:12px;color:var(--green);">✅ حضر: ${present}</span>
+        <span style="font-size:12px;color:var(--red);">❌ غاب: ${absent}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════ AUTO NOTIFY ON NEW LECTURE/VIDEO ══════════
+function autoNotifyLecture(title, grade) {
+  const gradeLabel = gradeNames[grade]||grade;
+  notifications.push({
+    id:'n_'+Date.now(),
+    title:'📚 محاضرة جديدة!',
+    body:`تمت إضافة محاضرة "${title}" للصف ${gradeLabel}`,
+    grade, time: new Date().toLocaleDateString('ar-EG')
+  });
+  saveAll();
+}
+
+function autoNotifyVideo(title, grade) {
+  const gradeLabel = gradeNames[grade]||grade;
+  notifications.push({
+    id:'n_'+Date.now(),
+    title:'🎬 فيديو جديد!',
+    body:`تمت إضافة فيديو "${title}" للصف ${gradeLabel}`,
+    grade, time: new Date().toLocaleDateString('ar-EG')
+  });
+  saveAll();
+}
+
 </script>
 </body>
 </html>
